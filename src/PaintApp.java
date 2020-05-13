@@ -42,6 +42,7 @@ public class PaintApp extends Application {
         Stack<Shape> undoHistory = new Stack();
         Stack<Shape> redoHistory = new Stack();
         
+        // Create toggle buttons for every tool
         ToggleButton drawBtn = new ToggleButton("Draw");
         ToggleButton rubberBtn = new ToggleButton("Rubber");
         ToggleButton lineBtn = new ToggleButton("Line");
@@ -53,26 +54,31 @@ public class PaintApp extends Application {
         ToggleButton[] toolsArray = {drawBtn, rubberBtn, lineBtn, rectBtn, cirlceBtn, ellipseBtn, textBtn};
         ToggleGroup tools = new ToggleGroup();
         
+        // Set toggle button's attributes
         for (ToggleButton tool : toolsArray) {
             tool.setMinWidth(90);
             tool.setToggleGroup(tools);
             tool.setCursor(Cursor.HAND);
         }
         
+        // Create two color pickers, one for the line and one for the fill, and set a default color
         ColorPicker cpLine = new ColorPicker(Color.BLACK);
         ColorPicker cpFill = new ColorPicker(Color.TRANSPARENT);
         
+        // Create a text you want to appear
         TextArea text = new TextArea();
         text.setPrefRowCount(1);
-        
+                
         Slider slider = new Slider(1, 50, 3);
         slider.setShowTickLabels(true);
         slider.setShowTickMarks(true);
         
+        // Labels for some tools
         Label line_color = new Label("Line Color");
         Label fill_color = new Label("Fill Color");
         Label line_width = new Label("3.0");
         
+        // Basic tasks buttons
         Button undo = new Button("Undo");
         Button redo = new Button("Redo");
         Button save = new Button("Save");
@@ -80,16 +86,17 @@ public class PaintApp extends Application {
         
         Button[] basicArray = {undo, redo, save, open};
         
+        // Set button's attributes and style
         for (Button btn : basicArray) {
             btn.setMinWidth(90);
             btn.setCursor(Cursor.HAND);
             btn.setTextFill(Color.WHITE);
             btn.setStyle("-fx-background-color: #666;");
-        }
-        
+        }        
         save.setStyle("-fx-background-color: #80334d;");
         open.setStyle("-fx-background-color: #80334d;");
         
+        // Create a vertical box to use it as a pallete and put everything in here
         VBox btns = new VBox(10);
         btns.getChildren().addAll(drawBtn, rubberBtn, lineBtn, rectBtn, cirlceBtn, ellipseBtn,
                                   textBtn, text, line_color, cpLine, fill_color, cpFill, line_width, 
@@ -98,6 +105,7 @@ public class PaintApp extends Application {
         btns.setStyle("-fx-background-color: #999;");
         btns.setPrefWidth(100);
         
+        // Create the canvas you will be drawing to
         Canvas canvas = new Canvas(1080, 790);
         GraphicsContext gc;
         gc = canvas.getGraphicsContext2D();
@@ -108,19 +116,67 @@ public class PaintApp extends Application {
         Circle circle = new Circle();
         Ellipse ellipse = new Ellipse();
         
+        // When you press your mouse click this event triggers
+        canvas.setOnMousePressed((event) -> {
+            // If the draw button is selected then begin a path with the cpLine color at x, y
+            if (drawBtn.isSelected()){
+                gc.setStroke(cpLine.getValue());
+                gc.beginPath();
+                gc.lineTo(event.getX(), event.getY());
+            }
+//            else if (rubberBtn.isSelected()) {
+//                double lineWidth = gc.getLineWidth();
+//                gc.clearRect(event.getX() - lineWidth / 2, event.getY() - lineWidth / 2, lineWidth, lineWidth);
+//            }
+//            else if (lineBtn.isSelected()){
+//                
+//            }
+        });
+        
+        // When you drag your mouse with pressed click this event triggers
+        canvas.setOnMouseDragged((event) -> {
+            // If the draw button is selected then draw at x, y
+            if (drawBtn.isSelected()) {
+                gc.lineTo(event.getX(), event.getY());
+                gc.stroke();
+            }
+        });
+        
+        // When you finally release your mouse click this event triggers
+        canvas.setOnMouseReleased((event) -> {
+            // If the draw button is selected then close the path
+            if (drawBtn.isSelected()) {
+                gc.lineTo(event.getX(), event.getY());
+                gc.stroke();
+                gc.closePath();
+            }
+        });
+        
+        // When you press the color picker and you pick a color this event changes the default color for the line
+        cpLine.setOnAction((event) -> {
+            gc.setStroke(cpLine.getValue());
+        });
+        // When you press the color picker and you pick a color this event changes the default color for the fill
+        cpFill.setOnAction((event) -> {
+            gc.setFill(cpFill.getValue());
+        });
+        
+        // Create a new border pane and set at the center the canvas and at the left your pallete
         BorderPane pane = new BorderPane();
         pane.setLeft(btns);
         pane.setCenter(canvas);
         
+        // Create a new scene and put inside the pane
         Scene scene = new Scene(pane, 1200, 800);
         
+        // Set a title for your application, set your scene, show the final app
         primaryStage.setTitle("Paint");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
 
     /**
-     * @param args the command line arguments
+     * Inspired by abdelaziz321
      */
     public static void main(String[] args) {
         launch(args);
