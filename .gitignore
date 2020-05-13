@@ -23,3 +23,5 @@
 hs_err_pid*
 /PaintApp/nbproject/private/
 /nbproject/private/
+/dist/
+/build/
