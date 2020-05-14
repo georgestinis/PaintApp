@@ -63,11 +63,11 @@ public class PaintApp extends Application {
         ToggleButton rubberBtn = new ToggleButton("Rubber");
         ToggleButton lineBtn = new ToggleButton("Line");
         ToggleButton rectBtn = new ToggleButton("Rectangle");
-        ToggleButton cirlceBtn = new ToggleButton("Circle");
+        ToggleButton circleBtn = new ToggleButton("Circle");
         ToggleButton ellipseBtn = new ToggleButton("Ellipse");
         ToggleButton textBtn = new ToggleButton("Text");
         
-        ToggleButton[] toolsArray = {drawBtn, rubberBtn, lineBtn, rectBtn, cirlceBtn, ellipseBtn, textBtn};
+        ToggleButton[] toolsArray = {drawBtn, rubberBtn, lineBtn, rectBtn, circleBtn, ellipseBtn, textBtn};
         ToggleGroup tools = new ToggleGroup();
         
         // Set toggle button's attributes
@@ -114,7 +114,7 @@ public class PaintApp extends Application {
         
         // Create a vertical box to use it as a pallete and put everything in here
         VBox btns = new VBox(10);
-        btns.getChildren().addAll(drawBtn, rubberBtn, lineBtn, rectBtn, cirlceBtn, ellipseBtn,
+        btns.getChildren().addAll(drawBtn, rubberBtn, lineBtn, rectBtn, circleBtn, ellipseBtn,
                                   textBtn, text, line_color, cpLine, fill_color, cpFill, line_width, 
                                   slider, undo, redo, open, save);
         btns.setPadding(new Insets(5));
@@ -140,13 +140,33 @@ public class PaintApp extends Application {
                 gc.beginPath();
                 gc.lineTo(event.getX(), event.getY());
             }
-//            else if (rubberBtn.isSelected()) {
-//                double lineWidth = gc.getLineWidth();
-//                gc.clearRect(event.getX() - lineWidth / 2, event.getY() - lineWidth / 2, lineWidth, lineWidth);
-//            }
-//            else if (lineBtn.isSelected()){
-//                
-//            }
+            else if (rubberBtn.isSelected()) {
+                double lineWidth = gc.getLineWidth();
+                gc.clearRect(event.getX() - lineWidth / 2, event.getY() - lineWidth / 2, lineWidth, lineWidth);
+            }
+            else if (lineBtn.isSelected()){
+                gc.setStroke(cpLine.getValue());
+                line.setStartX(event.getX());
+                line.setStartY(event.getY());
+            }
+            else if (rectBtn.isSelected()) {
+                gc.setStroke(cpLine.getValue());
+                gc.setFill(cpFill.getValue());
+                rect.setX(event.getX());
+                rect.setY(event.getY());
+            }
+            else if (circleBtn.isSelected()) {
+                gc.setStroke(cpLine.getValue());
+                gc.setFill(cpFill.getValue());
+                circle.setCenterX(event.getX());
+                circle.setCenterY(event.getY());
+            }
+            else if (ellipseBtn.isSelected()) {
+                gc.setStroke(cpLine.getValue());
+                gc.setFill(cpFill.getValue());
+                ellipse.setCenterX(event.getX());
+                ellipse.setCenterY(event.getY());
+            }
         });
         
         // When you drag your mouse with pressed click this event triggers
@@ -155,6 +175,10 @@ public class PaintApp extends Application {
             if (drawBtn.isSelected()) {
                 gc.lineTo(event.getX(), event.getY());
                 gc.stroke();
+            }
+            else if (rubberBtn.isSelected()) {
+                double lineWidth = gc.getLineWidth();
+                gc.clearRect(event.getX() - lineWidth / 2, event.getY() - lineWidth / 2, lineWidth, lineWidth);
             }
         });
         
@@ -166,6 +190,44 @@ public class PaintApp extends Application {
                 gc.stroke();
                 gc.closePath();
             }
+            else if (lineBtn.isSelected()) {
+                line.setEndX(event.getX());
+                line.setEndY(event.getY());
+                gc.strokeLine(line.getStartX(), line.getStartY(), line.getEndX(), line.getEndY());
+            }
+            else if (rectBtn.isSelected()) {
+                rect.setWidth(Math.abs((event.getX() - rect.getX())));
+                rect.setHeight(Math.abs((event.getY()- rect.getY())));
+                rect.setX((rect.getX() > event.getX()) ? event.getX() : rect.getX());
+                rect.setY((rect.getY() > event.getY()) ? event.getY() : rect.getY());
+                gc.fillRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
+                gc.strokeRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
+            }
+            else if (circleBtn.isSelected()) {
+                circle.setRadius(Math.abs(event.getX() - circle.getCenterX()));
+                circle.setCenterX((circle.getCenterX() > event.getX()) ? event.getX() : circle.getCenterX());
+                circle.setCenterY((circle.getCenterY() > event.getX()) ? event.getY() : circle.getCenterY());
+                gc.fillOval(circle.getCenterX() - circle.getRadius() / 2, 
+                            circle.getCenterY() - circle.getRadius() / 2,
+                            circle.getRadius() * 2, circle.getRadius() * 2);
+                gc.strokeOval(circle.getCenterX() - circle.getRadius() / 2,
+                              circle.getCenterY() - circle.getRadius() / 2,
+                              circle.getRadius() * 2, circle.getRadius() * 2);
+            }
+            else if (ellipseBtn.isSelected()) {
+                ellipse.setRadiusX(Math.abs(event.getX() - ellipse.getCenterX()));
+                ellipse.setRadiusY(Math.abs(event.getY() - ellipse.getCenterY()));
+                ellipse.setCenterX((ellipse.getCenterX() > event.getX()) ? event.getX() : ellipse.getCenterX());
+                ellipse.setCenterY((ellipse.getCenterY() > event.getX()) ? event.getY() : ellipse.getCenterY());
+                gc.fillOval(ellipse.getCenterX() - ellipse.getRadiusX() / 2, 
+                            ellipse.getCenterY() - ellipse.getRadiusY() / 2,
+                            ellipse.getRadiusX() * 2, ellipse.getRadiusY() * 2);
+                gc.strokeOval(ellipse.getCenterX() - ellipse.getRadiusX() / 2,
+                              ellipse.getCenterY() - ellipse.getRadiusY() / 2,
+                              ellipse.getRadiusX() * 2, ellipse.getRadiusY() * 2);
+            }
+            
+            
         });
         
         // When you press the color picker and you pick a color this event changes the default color for the line
