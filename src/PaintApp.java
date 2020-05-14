@@ -444,6 +444,7 @@ public class PaintApp extends Application {
 
     /**
      * Inspired by abdelaziz321
+     * @param args
      */
     public static void main(String[] args) {
         launch(args);
