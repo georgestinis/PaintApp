@@ -1,13 +1,11 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * - Undo & Redo : not working with free draw and rubber
+ * - Line & Rect & Circ ... can't be updated while drawing
  */
 
 import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Stack;
@@ -15,8 +13,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
@@ -32,15 +28,14 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.Paint;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
+import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javax.imageio.ImageIO;
@@ -66,6 +61,7 @@ public class PaintApp extends Application {
         ToggleButton circleBtn = new ToggleButton("Circle");
         ToggleButton ellipseBtn = new ToggleButton("Ellipse");
         ToggleButton textBtn = new ToggleButton("Text");
+        
         
         ToggleButton[] toolsArray = {drawBtn, rubberBtn, lineBtn, rectBtn, circleBtn, ellipseBtn, textBtn};
         ToggleGroup tools = new ToggleGroup();
@@ -99,8 +95,9 @@ public class PaintApp extends Application {
         Button redo = new Button("Redo");
         Button save = new Button("Save");
         Button open = new Button("Open");
-        
-        Button[] basicArray = {undo, redo, save, open};
+        Button clear = new Button("Clear");
+
+        Button[] basicArray = {undo, redo, save, open, clear};
         
         // Set button's attributes and style
         for (Button btn : basicArray) {
@@ -116,7 +113,7 @@ public class PaintApp extends Application {
         VBox btns = new VBox(10);
         btns.getChildren().addAll(drawBtn, rubberBtn, lineBtn, rectBtn, circleBtn, ellipseBtn,
                                   textBtn, text, line_color, cpLine, fill_color, cpFill, line_width, 
-                                  slider, undo, redo, open, save);
+                                  slider, undo, redo, clear, open, save);
         btns.setPadding(new Insets(5));
         btns.setStyle("-fx-background-color: #999;");
         btns.setPrefWidth(100);
@@ -140,32 +137,45 @@ public class PaintApp extends Application {
                 gc.beginPath();
                 gc.lineTo(event.getX(), event.getY());
             }
+            // If the rubber button is selected then clear at the specific location with the line width as rubber size
             else if (rubberBtn.isSelected()) {
                 double lineWidth = gc.getLineWidth();
                 gc.clearRect(event.getX() - lineWidth / 2, event.getY() - lineWidth / 2, lineWidth, lineWidth);
             }
+            // If the line button is selected then set a stroke color and set the starting x, y
             else if (lineBtn.isSelected()){
                 gc.setStroke(cpLine.getValue());
                 line.setStartX(event.getX());
                 line.setStartY(event.getY());
             }
+            // If the rectangle button is selected then set a stroke color and a fill color and set the x, y
             else if (rectBtn.isSelected()) {
                 gc.setStroke(cpLine.getValue());
                 gc.setFill(cpFill.getValue());
                 rect.setX(event.getX());
                 rect.setY(event.getY());
             }
+            // If the circle button is selected then set a stroke color and a fill color and set the center x, y
             else if (circleBtn.isSelected()) {
                 gc.setStroke(cpLine.getValue());
                 gc.setFill(cpFill.getValue());
                 circle.setCenterX(event.getX());
                 circle.setCenterY(event.getY());
             }
+            // If the ellipse button is selected then set a stroke color and a fill color and set the center x, y
             else if (ellipseBtn.isSelected()) {
                 gc.setStroke(cpLine.getValue());
                 gc.setFill(cpFill.getValue());
                 ellipse.setCenterX(event.getX());
                 ellipse.setCenterY(event.getY());
+            }
+            else if (textBtn.isSelected()){
+                gc.setLineWidth(1);
+                gc.setFont(Font.font(slider.getValue()));
+                gc.setStroke(cpLine.getValue());
+                gc.setFill(cpFill.getValue());
+                gc.fillText(text.getText(), event.getX(), event.getY());
+                gc.strokeText(text.getText(), event.getX(), event.getY());
             }
         });
         
@@ -176,6 +186,7 @@ public class PaintApp extends Application {
                 gc.lineTo(event.getX(), event.getY());
                 gc.stroke();
             }
+            // If the rubber button is selected then clear at the specific location with the line width as rubber size
             else if (rubberBtn.isSelected()) {
                 double lineWidth = gc.getLineWidth();
                 gc.clearRect(event.getX() - lineWidth / 2, event.getY() - lineWidth / 2, lineWidth, lineWidth);
@@ -190,11 +201,15 @@ public class PaintApp extends Application {
                 gc.stroke();
                 gc.closePath();
             }
+            // If the line button is selected set the end x, y and draw a line from start x, y to end x, y
             else if (lineBtn.isSelected()) {
                 line.setEndX(event.getX());
                 line.setEndY(event.getY());
                 gc.strokeLine(line.getStartX(), line.getStartY(), line.getEndX(), line.getEndY());
+                // Add to the stack for undo
+                undoHistory.push(new Line(line.getStartX(), line.getStartY(), line.getEndX(), line.getEndY()));
             }
+            // If the rectangle button is selected set the width and the height, the x, y and draw the shape
             else if (rectBtn.isSelected()) {
                 rect.setWidth(Math.abs((event.getX() - rect.getX())));
                 rect.setHeight(Math.abs((event.getY()- rect.getY())));
@@ -202,7 +217,10 @@ public class PaintApp extends Application {
                 rect.setY((rect.getY() > event.getY()) ? event.getY() : rect.getY());
                 gc.fillRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
                 gc.strokeRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
+                // Add to the stack for undo
+                undoHistory.push(new Rectangle(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight()));
             }
+            // If the circle button is selected set the radius and the center x, y then draw the shape
             else if (circleBtn.isSelected()) {
                 circle.setRadius(Math.abs(event.getX() - circle.getCenterX()));
                 circle.setCenterX((circle.getCenterX() > event.getX()) ? event.getX() : circle.getCenterX());
@@ -213,7 +231,10 @@ public class PaintApp extends Application {
                 gc.strokeOval(circle.getCenterX() - circle.getRadius() / 2,
                               circle.getCenterY() - circle.getRadius() / 2,
                               circle.getRadius() * 2, circle.getRadius() * 2);
+                // Add to the stack for undo
+                undoHistory.push(new Circle(circle.getCenterX(), circle.getCenterY(), circle.getRadius()));                
             }
+            // If the ellipse button is selected set the radius x, y and the center x, y then draw the shape
             else if (ellipseBtn.isSelected()) {
                 ellipse.setRadiusX(Math.abs(event.getX() - ellipse.getCenterX()));
                 ellipse.setRadiusY(Math.abs(event.getY() - ellipse.getCenterY()));
@@ -225,9 +246,14 @@ public class PaintApp extends Application {
                 gc.strokeOval(ellipse.getCenterX() - ellipse.getRadiusX() / 2,
                               ellipse.getCenterY() - ellipse.getRadiusY() / 2,
                               ellipse.getRadiusX() * 2, ellipse.getRadiusY() * 2);
+                // Add to the stack for undo
+                undoHistory.push(new Ellipse(ellipse.getCenterX(), ellipse.getCenterY(), ellipse.getRadiusX(), ellipse.getRadiusY()));
             }
-            
-            
+            redoHistory.clear();
+            Shape lastUndo = undoHistory.lastElement();
+            lastUndo.setFill(gc.getFill());
+            lastUndo.setStroke(gc.getStroke());
+            lastUndo.setStrokeWidth(gc.getLineWidth());            
         });
         
         // When you press the color picker and you pick a color this event changes the default color for the line
@@ -243,6 +269,123 @@ public class PaintApp extends Application {
             double width = slider.getValue();
             line_width.setText(String.format("%.1f", width));
             gc.setLineWidth(width);
+        });
+        
+        // When the clear button is pressed the canvas reset and clear the stack
+        clear.setOnAction((event) -> {
+            gc.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            redoHistory.clear();
+            undoHistory.clear();
+        });
+        
+        // When the undo button is pressed this function triggers
+        undo.setOnAction((event) -> {
+            if (!undoHistory.isEmpty()){
+                // First clear the canvas
+                gc.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                // Get the element you want to remove
+                Shape removedShape = undoHistory.lastElement();
+                // Check it's class and push it to redoHistory
+                if (removedShape.getClass() == Line.class){
+                    Line tempLine = (Line)removedShape;
+                    redoHistory.push(tempLine);
+                }
+                else if (removedShape.getClass() == Rectangle.class){
+                    Rectangle tempRect = (Rectangle)removedShape;
+                    redoHistory.push(tempRect);
+                }
+                else if (removedShape.getClass() == Circle.class){
+                    Circle tempCircle = (Circle)removedShape;
+                    redoHistory.push(tempCircle);
+                }
+                else if (removedShape.getClass() == Ellipse.class){
+                    Ellipse tempEllipse = (Ellipse)removedShape;
+                    redoHistory.push(tempEllipse);
+                }
+                
+                // Remove the element from undoHistory
+                undoHistory.pop();
+                // Run a for loop to draw the remaining shapes
+                for(int i=0; i < undoHistory.size(); i++) {
+                    Shape shape = undoHistory.elementAt(i);
+                    if(shape.getClass() == Line.class) {
+                        Line temp = (Line) shape;
+                        gc.setLineWidth(temp.getStrokeWidth());
+                        gc.setStroke(temp.getStroke());
+                        gc.setFill(temp.getFill());
+                        gc.strokeLine(temp.getStartX(), temp.getStartY(), temp.getEndX(), temp.getEndY());
+                    }
+                    else if(shape.getClass() == Rectangle.class) {
+                        Rectangle temp = (Rectangle) shape;
+                        gc.setLineWidth(temp.getStrokeWidth());
+                        gc.setStroke(temp.getStroke());
+                        gc.setFill(temp.getFill());
+                        gc.fillRect(temp.getX(), temp.getY(), temp.getWidth(), temp.getHeight());
+                        gc.strokeRect(temp.getX(), temp.getY(), temp.getWidth(), temp.getHeight());
+                    }
+                    else if(shape.getClass() == Circle.class) {
+                        Circle temp = (Circle) shape;
+                        gc.setLineWidth(temp.getStrokeWidth());
+                        gc.setStroke(temp.getStroke());
+                        gc.setFill(temp.getFill());
+                        gc.fillOval(temp.getCenterX(), temp.getCenterY(), temp.getRadius(), temp.getRadius());
+                        gc.strokeOval(temp.getCenterX(), temp.getCenterY(), temp.getRadius(), temp.getRadius());
+                    }
+                    else if(shape.getClass() == Ellipse.class) {
+                        Ellipse temp = (Ellipse) shape;
+                        gc.setLineWidth(temp.getStrokeWidth());
+                        gc.setStroke(temp.getStroke());
+                        gc.setFill(temp.getFill());
+                        gc.fillOval(temp.getCenterX(), temp.getCenterY(), temp.getRadiusX(), temp.getRadiusY());
+                        gc.strokeOval(temp.getCenterX(), temp.getCenterY(), temp.getRadiusX(), temp.getRadiusY());
+                    }
+                }
+            }
+            else {
+                System.out.println("there is no action to undo");
+            }
+        });
+        
+        // When the redo button is pressed this function triggers
+        redo.setOnAction((event) -> {
+            if (!redoHistory.isEmpty()) {
+                // Get the last element
+                Shape shape = redoHistory.lastElement();
+                // Set the drawing attributes
+                gc.setLineWidth(shape.getStrokeWidth());
+                gc.setStroke(shape.getStroke());
+                gc.setFill(shape.getFill());
+                // Remove from the stack
+                redoHistory.pop();
+                
+                // Check it's class, draw it and push it to undoHistory
+                if (shape.getClass() == Line.class) {
+                    Line tempLine = (Line)shape;
+                    gc.strokeLine(tempLine.getStartX(), tempLine.getStartY(), tempLine.getEndX(), tempLine.getEndY());
+                    undoHistory.push(tempLine);
+                }
+                else if (shape.getClass() == Rectangle.class) {
+                    Rectangle tempRect = (Rectangle)shape;
+                    gc.strokeRect(tempRect.getX(), tempRect.getY(), tempRect.getWidth(), tempRect.getHeight());
+                    gc.fillRect(tempRect.getX(), tempRect.getY(), tempRect.getWidth(), tempRect.getHeight());
+                    undoHistory.push(tempRect);
+                }
+                else if (shape.getClass() == Circle.class) {
+                    Circle tempCircle = (Circle)shape;
+                    gc.strokeOval(tempCircle.getCenterX(), tempCircle.getCenterY(), tempCircle.getRadius(), tempCircle.getRadius());
+                    gc.fillOval(tempCircle.getCenterX(), tempCircle.getCenterY(), tempCircle.getRadius(), tempCircle.getRadius());
+                    undoHistory.push(tempCircle);
+                }
+                else if (shape.getClass() == Ellipse.class) {
+                    Ellipse tempEllipse = (Ellipse)shape;
+                    gc.strokeOval(tempEllipse.getCenterX(), tempEllipse.getCenterY(), tempEllipse.getRadiusX(), tempEllipse.getRadiusY());
+                    gc.fillOval(tempEllipse.getCenterX(), tempEllipse.getCenterY(), tempEllipse.getRadiusX(), tempEllipse.getRadiusY());
+                    undoHistory.push(tempEllipse);
+                }                
+            }
+            else {
+                System.out.println("there is no action to redo");
+            }
         });
         
         // Open a file and draw it
