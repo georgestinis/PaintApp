@@ -4,8 +4,17 @@
  * and open the template in the editor.
  */
 
+import java.awt.image.RenderedImage;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Stack;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.application.Application;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -20,22 +29,29 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javax.imageio.ImageIO;
 
 /**
  *
  * @author stini
  */
 public class PaintApp extends Application {
+    final static int CANVAS_WIDTH = 1080;
+    final static int CANVAS_HEIGHT = 790;
     
     @Override
     public void start(Stage primaryStage) {
@@ -106,7 +122,7 @@ public class PaintApp extends Application {
         btns.setPrefWidth(100);
         
         // Create the canvas you will be drawing to
-        Canvas canvas = new Canvas(1080, 790);
+        Canvas canvas = new Canvas(CANVAS_WIDTH, CANVAS_HEIGHT);
         GraphicsContext gc;
         gc = canvas.getGraphicsContext2D();
         gc.setLineWidth(1);
@@ -159,6 +175,52 @@ public class PaintApp extends Application {
         // When you press the color picker and you pick a color this event changes the default color for the fill
         cpFill.setOnAction((event) -> {
             gc.setFill(cpFill.getValue());
+        });
+        
+        slider.valueProperty().addListener((event) -> {
+            double width = slider.getValue();
+            line_width.setText(String.format("%.1f", width));
+            gc.setLineWidth(width);
+        });
+        
+        // Open a file and draw it
+        open.setOnAction((event) -> {
+           FileChooser openFile = new FileChooser();
+           openFile.setTitle("Open File");
+            File file = openFile.showOpenDialog(primaryStage);
+            if (file != null) {
+                try {
+                    InputStream io = new FileInputStream(file);
+                    Image img = new Image(io);
+                    gc.drawImage(img, 0, 0);
+                } catch (IOException ex) {
+                   Logger.getLogger(PaintApp.class.getName()).log(Level.SEVERE, "Error", ex);
+               }
+            }
+        });
+        
+        save.setOnAction((event) -> {
+            FileChooser saveFile = new FileChooser();
+            saveFile.setTitle("Save File");
+
+            // Set extension filter
+            FileChooser.ExtensionFilter extFilter = 
+                    new FileChooser.ExtensionFilter("png files (*.png)", "*.png");
+            saveFile.getExtensionFilters().add(extFilter);
+
+            // Show save file dialog
+            File file = saveFile.showSaveDialog(primaryStage);
+
+            if(file != null){
+                try {
+                    WritableImage writableImage = new WritableImage(CANVAS_WIDTH, CANVAS_HEIGHT);
+                    canvas.snapshot(null, writableImage);
+                    RenderedImage renderedImage = SwingFXUtils.fromFXImage(writableImage, null);
+                    ImageIO.write(renderedImage, "png", file);
+                } catch (IOException ex) {
+                    Logger.getLogger(PaintApp.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }            
         });
         
         // Create a new border pane and set at the center the canvas and at the left your pallete
