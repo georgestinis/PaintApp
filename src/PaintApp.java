@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.NoSuchElementException;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -36,6 +37,7 @@ import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
 import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javax.imageio.ImageIO;
@@ -136,6 +138,7 @@ public class PaintApp extends Application {
                 gc.setStroke(cpLine.getValue());
                 gc.beginPath();
                 gc.lineTo(event.getX(), event.getY());
+                redoHistory.clear();
             }
             // If the rubber button is selected then clear at the specific location with the line width as rubber size
             else if (rubberBtn.isSelected()) {
@@ -176,6 +179,7 @@ public class PaintApp extends Application {
                 gc.setFill(cpFill.getValue());
                 gc.fillText(text.getText(), event.getX(), event.getY());
                 gc.strokeText(text.getText(), event.getX(), event.getY());
+                undoHistory.push(new Text(event.getX(), event.getY(), text.getText()));
             }
         });
         
@@ -200,60 +204,64 @@ public class PaintApp extends Application {
                 gc.lineTo(event.getX(), event.getY());
                 gc.stroke();
                 gc.closePath();
+            }   
+            else if (!rubberBtn.isSelected()) {
+                // If the line button is selected set the end x, y and draw a line from start x, y to end x, y
+                if (lineBtn.isSelected()) {
+                    line.setEndX(event.getX());
+                    line.setEndY(event.getY());
+                    gc.strokeLine(line.getStartX(), line.getStartY(), line.getEndX(), line.getEndY());
+                    // Add to the stack for undo
+                    undoHistory.push(new Line(line.getStartX(), line.getStartY(), line.getEndX(), line.getEndY()));
+                }
+                // If the rectangle button is selected set the width and the height, the x, y and draw the shape
+                else if (rectBtn.isSelected()) {
+                    rect.setWidth(Math.abs((event.getX() - rect.getX())));
+                    rect.setHeight(Math.abs((event.getY()- rect.getY())));
+                    rect.setX((rect.getX() > event.getX()) ? event.getX() : rect.getX());
+                    rect.setY((rect.getY() > event.getY()) ? event.getY() : rect.getY());
+                    gc.fillRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
+                    gc.strokeRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
+                    // Add to the stack for undo
+                    undoHistory.push(new Rectangle(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight()));
+                }
+                // If the circle button is selected set the radius and the center x, y then draw the shape
+                else if (circleBtn.isSelected()) {
+                    circle.setRadius(Math.abs(event.getX() - circle.getCenterX()));
+                    circle.setCenterX((circle.getCenterX() > event.getX()) ? event.getX() : circle.getCenterX());
+                    circle.setCenterY((circle.getCenterY() > event.getX()) ? event.getY() : circle.getCenterY());
+                    gc.fillOval(circle.getCenterX() - circle.getRadius() / 2, 
+                                circle.getCenterY() - circle.getRadius() / 2,
+                                circle.getRadius() * 2, circle.getRadius() * 2);
+                    gc.strokeOval(circle.getCenterX() - circle.getRadius() / 2,
+                                  circle.getCenterY() - circle.getRadius() / 2,
+                                  circle.getRadius() * 2, circle.getRadius() * 2);
+                    // Add to the stack for undo
+                    undoHistory.push(new Circle(circle.getCenterX(), circle.getCenterY(), circle.getRadius()));                
+                }
+                // If the ellipse button is selected set the radius x, y and the center x, y then draw the shape
+                else if (ellipseBtn.isSelected()) {
+                    ellipse.setRadiusX(Math.abs(event.getX() - ellipse.getCenterX()));
+                    ellipse.setRadiusY(Math.abs(event.getY() - ellipse.getCenterY()));
+                    ellipse.setCenterX((ellipse.getCenterX() > event.getX()) ? event.getX() : ellipse.getCenterX());
+                    ellipse.setCenterY((ellipse.getCenterY() > event.getX()) ? event.getY() : ellipse.getCenterY());
+                    gc.fillOval(ellipse.getCenterX() - ellipse.getRadiusX() / 2, 
+                                ellipse.getCenterY() - ellipse.getRadiusY() / 2,
+                                ellipse.getRadiusX() * 2, ellipse.getRadiusY() * 2);
+                    gc.strokeOval(ellipse.getCenterX() - ellipse.getRadiusX() / 2,
+                                  ellipse.getCenterY() - ellipse.getRadiusY() / 2,
+                                  ellipse.getRadiusX() * 2, ellipse.getRadiusY() * 2);
+                    // Add to the stack for undo
+                    undoHistory.push(new Ellipse(ellipse.getCenterX(), ellipse.getCenterY(), ellipse.getRadiusX(), ellipse.getRadiusY()));
+                }
+                redoHistory.clear();
+                if (!undoHistory.empty()) {
+                    Shape lastUndo = undoHistory.lastElement();
+                    lastUndo.setFill(gc.getFill());
+                    lastUndo.setStroke(gc.getStroke());
+                    lastUndo.setStrokeWidth(gc.getLineWidth());  
+                }
             }
-            // If the line button is selected set the end x, y and draw a line from start x, y to end x, y
-            else if (lineBtn.isSelected()) {
-                line.setEndX(event.getX());
-                line.setEndY(event.getY());
-                gc.strokeLine(line.getStartX(), line.getStartY(), line.getEndX(), line.getEndY());
-                // Add to the stack for undo
-                undoHistory.push(new Line(line.getStartX(), line.getStartY(), line.getEndX(), line.getEndY()));
-            }
-            // If the rectangle button is selected set the width and the height, the x, y and draw the shape
-            else if (rectBtn.isSelected()) {
-                rect.setWidth(Math.abs((event.getX() - rect.getX())));
-                rect.setHeight(Math.abs((event.getY()- rect.getY())));
-                rect.setX((rect.getX() > event.getX()) ? event.getX() : rect.getX());
-                rect.setY((rect.getY() > event.getY()) ? event.getY() : rect.getY());
-                gc.fillRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
-                gc.strokeRect(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight());
-                // Add to the stack for undo
-                undoHistory.push(new Rectangle(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight()));
-            }
-            // If the circle button is selected set the radius and the center x, y then draw the shape
-            else if (circleBtn.isSelected()) {
-                circle.setRadius(Math.abs(event.getX() - circle.getCenterX()));
-                circle.setCenterX((circle.getCenterX() > event.getX()) ? event.getX() : circle.getCenterX());
-                circle.setCenterY((circle.getCenterY() > event.getX()) ? event.getY() : circle.getCenterY());
-                gc.fillOval(circle.getCenterX() - circle.getRadius() / 2, 
-                            circle.getCenterY() - circle.getRadius() / 2,
-                            circle.getRadius() * 2, circle.getRadius() * 2);
-                gc.strokeOval(circle.getCenterX() - circle.getRadius() / 2,
-                              circle.getCenterY() - circle.getRadius() / 2,
-                              circle.getRadius() * 2, circle.getRadius() * 2);
-                // Add to the stack for undo
-                undoHistory.push(new Circle(circle.getCenterX(), circle.getCenterY(), circle.getRadius()));                
-            }
-            // If the ellipse button is selected set the radius x, y and the center x, y then draw the shape
-            else if (ellipseBtn.isSelected()) {
-                ellipse.setRadiusX(Math.abs(event.getX() - ellipse.getCenterX()));
-                ellipse.setRadiusY(Math.abs(event.getY() - ellipse.getCenterY()));
-                ellipse.setCenterX((ellipse.getCenterX() > event.getX()) ? event.getX() : ellipse.getCenterX());
-                ellipse.setCenterY((ellipse.getCenterY() > event.getX()) ? event.getY() : ellipse.getCenterY());
-                gc.fillOval(ellipse.getCenterX() - ellipse.getRadiusX() / 2, 
-                            ellipse.getCenterY() - ellipse.getRadiusY() / 2,
-                            ellipse.getRadiusX() * 2, ellipse.getRadiusY() * 2);
-                gc.strokeOval(ellipse.getCenterX() - ellipse.getRadiusX() / 2,
-                              ellipse.getCenterY() - ellipse.getRadiusY() / 2,
-                              ellipse.getRadiusX() * 2, ellipse.getRadiusY() * 2);
-                // Add to the stack for undo
-                undoHistory.push(new Ellipse(ellipse.getCenterX(), ellipse.getCenterY(), ellipse.getRadiusX(), ellipse.getRadiusY()));
-            }
-            redoHistory.clear();
-            Shape lastUndo = undoHistory.lastElement();
-            lastUndo.setFill(gc.getFill());
-            lastUndo.setStroke(gc.getStroke());
-            lastUndo.setStrokeWidth(gc.getLineWidth());            
         });
         
         // When you press the color picker and you pick a color this event changes the default color for the line
@@ -342,7 +350,7 @@ public class PaintApp extends Application {
                 }
             }
             else {
-                System.out.println("there is no action to undo");
+                System.out.println("There is no action to undo");
             }
         });
         
